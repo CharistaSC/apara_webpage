@@ -1,204 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Light Bulb Nodes</title>
+  <meta charset="UTF-8" />
+  <title>Low-Poly Spheres with Particle Flow</title>
   <style>
-    body {
-      background: #fefefe;
-      margin: 0;
-    }
-
-    svg {
-      width: 100vw;
-      height: 100vh;
-      display: block;
-      background: #414141af;
-    }
-
-    @keyframes pulse {
-      0%, 100% { r: 5; opacity: 0.6; }
-      50% { r: 8.5; opacity: 1; }
-    }
-
-    .ray {
-      stroke: #ffffff;
-      stroke-width: 4;
-      stroke-linecap: round;
-    }
+    body { margin: 0; background: #000; overflow: hidden; }
+    canvas { display: block; }
   </style>
 </head>
 <body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script>
+    // Scene and Camera
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.z = 6;
 
-<svg id="bulbSVG"></svg>
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-<script>
-const svg = document.getElementById("bulbSVG");
-const centerX = window.innerWidth / 2;
-const centerY = window.innerHeight / 2 - 50;
+    // Low-res Sphere Geometry (16 quads = 8 width & 4 height segments approx)
+    const lowResGeo = new THREE.SphereGeometry(0.8, 8, 4); // fewer segments
+    const wireMaterial = new THREE.MeshBasicMaterial({
+      color: 0x00ffff,
+      wireframe: true
+    });
 
-const circleRadius = 320;
-const rectWidth = 280;
-const rectHeight = 300;
-const tolerance = 32;
+    const sphereLeft = new THREE.Mesh(lowResGeo, wireMaterial);
+    sphereLeft.position.x = -3;
+    scene.add(sphereLeft);
 
-const floatingNodes = [];
-const connectingLines = [];
+    const sphereRight = new THREE.Mesh(lowResGeo, wireMaterial);
+    sphereRight.position.x = 3;
+    scene.add(sphereRight);
 
-const nodes = [];
-const node_rec_num = 170
-const node_circ_num = 250
+    // Particle system (flowing left ➝ right)
+    const particleCount = 400;
+    const particleGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const speeds = new Float32Array(particleCount);
 
-
-// ➤ Draw nodes along the circle
-for (let i = 0; i < node_circ_num; i++) {
-  const angle = (i / 120) * 2 * Math.PI;
-  const x = centerX + circleRadius * Math.cos(angle);
-  const y = centerY + circleRadius * Math.sin(angle);
-
-  nodes.push({ x: jitter(x), y: jitter(y) });
-}
-
-// ➤ Draw nodes along the rectangle
-const rectTop = centerY + circleRadius;
-for (let i = 0; i < node_rec_num; i++) {
-  const side = i % 4;
-  const ratio = (i % 20) / 20;
-  let x, y;
-
-  if (side === 0) {
-    x = centerX - rectWidth / 2 + ratio * rectWidth;
-    y = rectTop;
-  } else if (side === 1) {
-    x = centerX + rectWidth / 2;
-    y = rectTop + ratio * rectHeight;
-  } else if (side === 2) {
-    x = centerX + rectWidth / 2 - ratio * rectWidth;
-    y = rectTop + rectHeight;
-  } else {
-    x = centerX - rectWidth / 2;
-    y = rectTop + rectHeight - ratio * rectHeight;
-  }
-
-  nodes.push({ x: jitter(x), y: jitter(y) });
-}
-
-// ➤ Draw light rays (around top of bulb)
-const rayCount = 12;
-for (let i = 0; i < rayCount; i++) {
-  const angle = (i / rayCount) * 2 * Math.PI;
-  const x1 = centerX + circleRadius * 1.25 * Math.cos(angle);
-  const y1 = centerY + circleRadius * 1.25 * Math.sin(angle);
-  const x2 = centerX + circleRadius * 1.6 * Math.cos(angle);
-  const y2 = centerY + circleRadius * 1.6 * Math.sin(angle);
-
-  const ray = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  ray.setAttribute("x1", x1);
-  ray.setAttribute("y1", y1);
-  ray.setAttribute("x2", x2);
-  ray.setAttribute("y2", y2);
-  ray.setAttribute("class", "ray");
-  svg.appendChild(ray);
-}
-
-// ➤ Draw the nodes (with pulse)
-for (let pt of nodes) {
-  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-
-  const baseX = pt.x;
-  const baseY = pt.y;
-
-  // Individual breathing and movement values
-  const offset = Math.random() * 2 * Math.PI;
-  const speed = 1 + Math.random(); // breathing speed multiplier
-  const vx = (Math.random() - 0.5) * 0.2;
-  const vy = (Math.random() - 0.5) * 0.2;
-
-  circle.setAttribute("cx", baseX);
-  circle.setAttribute("cy", baseY);
-  circle.setAttribute("fill", "#ffffff");
-
-  svg.appendChild(circle);
-
-  floatingNodes.push({ circle, baseX, baseY, vx, vy, offset, speed });
-}
-
-// ➤ Draw connecting lines between nearby nodes
-for (let i = 0; i < floatingNodes.length; i++) {
-  for (let j = i + 1; j < floatingNodes.length; j++) {
-    const dx = floatingNodes[i].baseX - floatingNodes[j].baseX;
-    const dy = floatingNodes[i].baseY - floatingNodes[j].baseY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist < 60) {
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("x1", floatingNodes[i].baseX);
-      line.setAttribute("y1", floatingNodes[i].baseY);
-      line.setAttribute("x2", floatingNodes[j].baseX);
-      line.setAttribute("y2", floatingNodes[j].baseY);
-      line.setAttribute("class", "line");
-      line.setAttribute("stroke", "#ffffff"); // or any hex/RGBA color
-      svg.appendChild(line);
-
-      // Store line and the node pair it connects
-      connectingLines.push({
-        line,
-        nodeA: floatingNodes[i],
-        nodeB: floatingNodes[j],
-      });
-    }
-  }
-}
-
-function jitter(val) {
-  return val + (Math.random() - 0.5) * 2 * tolerance;
-}
-
-function animateNodes(time) {
-    
-  for (const node of floatingNodes) {
-    // Breathing effect
-    const scale = 1 + 0.3 * Math.sin((time / 500) * node.speed + node.offset);
-    node.circle.setAttribute("r", 5.5 * scale);
-
-    // Floating
-    const driftX = Math.sin((time / 1500) + node.offset) * tolerance;
-    const driftY = Math.cos((time / 1500) + node.offset) * tolerance;
-
-    const newX = node.baseX + driftX;
-    const newY = node.baseY + driftY;
-
-    node.circle.setAttribute("cx", newX);
-    node.circle.setAttribute("cy", newY);
-
-    // Save current position for line updates
-    node.currentX = newX;
-    node.currentY = newY;
-  }
-
-  // 🧵 Update all connecting lines
-    for (const { line, nodeA, nodeB } of connectingLines) {
-    const dx = nodeA.currentX - nodeB.currentX;
-    const dy = nodeA.currentY - nodeB.currentY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    const maxDist = 80;
-    const intensity = Math.max(0, 1 - dist / maxDist); // Clamp to 0
-    const color = `rgba(255, 255, 255, ${intensity * 0.6})`; // soft golden lines
-
-    line.setAttribute("x1", nodeA.currentX);
-    line.setAttribute("y1", nodeA.currentY);
-    line.setAttribute("x2", nodeB.currentX);
-    line.setAttribute("y2", nodeB.currentY);
-    line.setAttribute("stroke", color);
+    for (let i = 0; i < particleCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 10; // x
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 6; // y
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 2; // z
+      speeds[i] = 0.01 + Math.random() * 0.02;
     }
 
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-  requestAnimationFrame(animateNodes);
-}
+    const particleMaterial = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.05
+    });
 
-requestAnimationFrame(animateNodes);
-</script>
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    scene.add(particles);
 
+    // Animate
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Rotate spheres
+      sphereLeft.rotation.y += 0.01;
+      sphereRight.rotation.y -= 0.01;
+
+      // Animate particles flowing right
+      const pos = particleGeometry.attributes.position.array;
+      for (let i = 0; i < particleCount; i++) {
+        pos[i * 3] += speeds[i]; // x axis
+
+        // Wrap particles when out of bounds
+        if (pos[i * 3] > 6) {
+          pos[i * 3] = -6;
+        }
+      }
+      particleGeometry.attributes.position.needsUpdate = true;
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Handle resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
 </body>
 </html>

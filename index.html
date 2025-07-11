@@ -21,12 +21,23 @@ body {
 }
 
 .hero-section {
-  height: 40vh; /* full viewport height */
+  height: 55vh; /* full viewport height */
   position: relative;
   z-index: 1;
   color: white;
   overflow-x: hidden;
 }
+
+#hero-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none; /* Allows clicks to pass through */
+}
+
 
 #circuit-bg {
   position: fixed;
@@ -97,11 +108,11 @@ h1, h4 {
   <!-- Navbar container -->
   <div id="navbar-container"></div>
 
-  <canvas id="circuit-bg"></canvas>
-
   <!-- Hero Section -->
-  <section class="hero-section d-flex align-items-center justify-content-center text-center">
-    <div class="container">
+  <section class="hero-section d-flex align-items-center justify-content-center text-center position-relative">
+    <canvas id="hero-canvas"></canvas>
+
+    <div class="container position-relative" style="z-index: 1;">
         <h1 class="d-flex justify-content-center align-items-center gap-2 flex-wrap mb-5">
           <span id="augmenting-wrapper">
             <span id="animated-word" style="font-size: 3.7rem;">Augmenting </span>
@@ -291,6 +302,8 @@ h1, h4 {
     </div>
   </section>
 
+  <canvas id="circuit-bg"></canvas>
+
   <section class="py-5 text-white">
     <div class="container py-5">
       <div class="row justify-content-center py-5">
@@ -432,6 +445,11 @@ h1, h4 {
   <!-- Footer container -->
   <div id="footer-container"></div>
 
+  <svg id="hero-shape" width="0" height="0" style="position: absolute; visibility: hidden;">
+    <path id="ring-path" d="M 300,200 m -100,0 a 100,100 0 1,0 200,0 a 100,100 0 1,0 -200,0" />
+  </svg>
+
+
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="script/script.js"></script>
@@ -450,7 +468,7 @@ h1, h4 {
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
 
-      const NODE_COUNT = 150;
+      const NODE_COUNT = 200;
       const SPEED = 0.3;
       const CONNECT_DIST = 120;
 
@@ -502,6 +520,81 @@ h1, h4 {
         requestAnimationFrame(draw);
       }
       draw();
+
+      const heroCanvas = document.getElementById('hero-canvas');
+      const heroCtx = heroCanvas.getContext('2d');
+
+      function resizeHeroCanvas() {
+        heroCanvas.width = heroCanvas.offsetWidth;
+        heroCanvas.height = heroCanvas.offsetHeight;
+      }
+      resizeHeroCanvas();
+      window.addEventListener('resize', resizeHeroCanvas);
+
+      // Ring Node Config
+      const RING_NODE_COUNT = 250;
+      const RING_RADIUS = 460;
+      const RING_THICKNESS = 50;
+      let ringNodes = [];
+
+      function generateRing(centerX, centerY) {
+        ringNodes = [];
+        for (let i = 0; i < RING_NODE_COUNT; i++) {
+          const angle = (i / RING_NODE_COUNT) * Math.PI * 2;
+          ringNodes.push({
+            angle,
+            baseRadius: RING_RADIUS + (Math.random() - 0.5) * RING_THICKNESS,
+            phase: Math.random() * Math.PI * 3,
+            speed: 0.01 + Math.random() * 0.01,
+            x: 0,
+            y: 0
+          });
+        }
+        return { centerX, centerY };
+      }
+
+      // Re-center on load
+      let center = generateRing(heroCanvas.width / 2, heroCanvas.height / 2);
+
+      // Animation
+      function drawHeroRing() {
+        heroCtx.clearRect(0, 0, heroCanvas.width, heroCanvas.height);
+
+
+        // 🟥 Update + Draw nodes
+        for (let node of ringNodes) {
+          node.phase += 0.005; // speed of oscillation
+          const radius = node.baseRadius + Math.sin(node.phase) * (RING_THICKNESS / 2);
+
+          node.x = center.centerX + Math.cos(node.angle) * radius;
+          node.y = center.centerY + Math.sin(node.angle) * radius;
+
+          heroCtx.beginPath();
+          heroCtx.arc(node.x, node.y, 4.4, 0, Math.PI * 2);
+          heroCtx.fillStyle = "rgba(196, 40, 29, 1)"; // 0.4 = 40% opacity
+          heroCtx.fill();
+        }
+
+        // 🟥 Draw connecting lines between nearby nodes
+        for (let i = 0; i < ringNodes.length; i++) {
+          for (let j = i + 1; j < ringNodes.length; j++) {
+            const dx = ringNodes[i].x - ringNodes[j].x;
+            const dy = ringNodes[i].y - ringNodes[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 40) {
+              heroCtx.beginPath();
+              heroCtx.moveTo(ringNodes[i].x, ringNodes[i].y);
+              heroCtx.lineTo(ringNodes[j].x, ringNodes[j].y);
+              heroCtx.strokeStyle = "rgba(255, 77, 77, 0.4)";
+              heroCtx.lineWidth = 1;
+              heroCtx.stroke();
+            }
+          }
+        }
+
+        requestAnimationFrame(drawHeroRing);
+      }
+      drawHeroRing();
 
       const wordEl = document.getElementById('animated-word');
       const wrapperEl = document.getElementById('augmenting-wrapper');
