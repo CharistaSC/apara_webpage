@@ -31,3 +31,21 @@ body {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
 }
+
+.navbar-nav .nav-item {
+  margin: 0 1.5rem; /* Adjust spacing here */
+  font-size: 1.1rem;
+  font-family: "Roboto Flex", sans-serif;
+}
+
+
+.btn-custom-red {
+  background-color: #EC2024;
+  color: white;
+  border: none;
+}
+
+.btn-custom-red:hover {
+  background-color: #C30000;
+  color: white;
+}
